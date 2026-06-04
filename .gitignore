@@ -1,0 +1,33 @@
+# Environment secrets
+.env
+
+# SQLite databases and journals
+*.db
+*.db-wal
+*.db-shm
+
+# Data backups
+*.bak_*
+data.json
+data.json.bak*
+backups/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
