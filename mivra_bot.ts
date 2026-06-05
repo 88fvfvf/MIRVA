@@ -34,7 +34,9 @@ import { SpamGuard } from './mivra_spam';
 import { buildAdminAnalytics, formatAdminStats } from './mivra_analytics';
 import {
   ReferralRepository, ReferralRewardRepository,
-  checkAndDistributeRewards, getReferralStats, RewardType
+  checkAndDistributeRewards, getReferralStats, RewardType,
+  getEarnedAchievements, getNextAchievement, ACHIEVEMENTS,
+  ReferralFullStats
 } from './mivra_referral';
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────────────────────
@@ -231,6 +233,49 @@ const TR = {
     ref_notif_pro10:      '🎉 ⭐ PRO активирован! Вы пригласили 10 пользователей.',
     ref_notif_pro6mo:     '🎉 ⭐ PRO на 6 месяцев + 3 Boost! 25 магазинов приглашено.',
     ref_invited_by:       (name: string) => `👋 Вы присоединились по приглашению *${name}*!`,
+    // ── Analytics dashboard ──────────────────────────────────────────────────────
+    ref_analytics_btn:    '📊 Аналитика',
+    ref_analytics_title:  '📊 *Реферальная аналитика*',
+    ref_total_lbl:        'Всего приглашено',
+    ref_active_lbl:       'Активных рефералов',
+    ref_pending_lbl:      'Ожидают регистрации',
+    ref_suppliers_lbl:    'Поставщиков',
+    ref_pro_active:       '✅ Активен',
+    ref_pro_inactive:     '❌ Не активен',
+    ref_pro_until:        'Действует до',
+    // ── Milestone progress ──────────────────────────────────────────────────────
+    ref_milestones_title: '🏁 *Ваши мильстоуны*',
+    ref_m1_title:         '🚀 Буст (3 реферала)',
+    ref_m2_title:         '⭐ PRO 30 дней (10 рефералов)',
+    ref_m3_title:         '👑 PRO 6 мес + 3 Boost (25 магазинов)',
+    ref_m_done:           '✅ Выполнено',
+    ref_m_next_lbl:       'Следующая награда',
+    // ── Leaderboard ──────────────────────────────────────────────────────────────
+    ref_leaderboard_btn:  '🏆 Лидерборд',
+    ref_leaderboard_title:'🏆 *Топ приглашающих*',
+    ref_lb_empty:         '📭 Нет данных.',
+    ref_lb_refs_lbl:      'реф.',
+    // ── Personal ranking ────────────────────────────────────────────────────────
+    ref_rank_btn:         '📍 Мой рейтинг',
+    ref_rank_title:       '📍 *Ваш рейтинг*',
+    ref_rank_pos:         'Позиция',
+    ref_rank_total:       'Всего рефералов',
+    ref_rank_next:        'Следующая позиция',
+    ref_rank_gap:         (n: number) => `Ещё *${n}* рефералов до следующей позиции`,
+    ref_rank_top:         '🥇 Вы на вершине лидерборда!',
+    // ── Referral history ─────────────────────────────────────────────────────────
+    ref_history_btn:      '🗓 История',
+    ref_history_title:    '🗓 *Последние рефералы*',
+    ref_history_empty:    '📭 История пуста.',
+    ref_hist_store:       '🏪 Магазин',
+    ref_hist_supplier:    '🚛 Поставщик',
+    ref_hist_unknown:     '👤 Пользователь',
+    ref_hist_valid:       '✅ Активен',
+    ref_hist_pending:     '⏳ Ожидает регистрации',
+    // ── Achievements ─────────────────────────────────────────────────────────────
+    ref_achievements_lbl: '🏅 Достижения',
+    ref_no_achievements:  '⏳ Пока нет. Пригласите 3 партнёра!',
+    ref_next_badge:       'Следующий знак',
   },
   uz: {
     select_lang: '👋 *MIVRA*га хуш келибсиз\n_Savdoni osonlashtiramiz._\n\nВыберите язык / Tilni tanlang:',
@@ -414,6 +459,49 @@ const TR = {
     ref_notif_pro10:      '🎉 ⭐ PRO faollashtirildi! 10 foydalanuvchi taklif qildingiz.',
     ref_notif_pro6mo:     '🎉 ⭐ PRO 6 oy + 3 Boost! 25 do\'kon taklif qilindi.',
     ref_invited_by:       (name: string) => `👋 Siz *${name}* taklifi orqali qo'shildingiz!`,
+    // Analytics dashboard
+    ref_analytics_btn:    '📊 Tahlil',
+    ref_analytics_title:  '📊 *Referal tahlili*',
+    ref_total_lbl:        'Jami taklif qilingan',
+    ref_active_lbl:       'Faol referallar',
+    ref_pending_lbl:      "Ro'yxatdan o'tishni kutmoqda",
+    ref_suppliers_lbl:    'Yetkazib beruvchilar',
+    ref_pro_active:       '✅ Faol',
+    ref_pro_inactive:     '❌ Faol emas',
+    ref_pro_until:        'Amal qilish muddati',
+    // Milestone progress
+    ref_milestones_title: '🏁 *Milestonelaringiz*',
+    ref_m1_title:         '🚀 Boost (3 referal)',
+    ref_m2_title:         '⭐ PRO 30 kun (10 referal)',
+    ref_m3_title:         '👑 PRO 6 oy + 3 Boost (25 do\'kon)',
+    ref_m_done:           '✅ Yakunlandi',
+    ref_m_next_lbl:       'Keyingi mukofot',
+    // Leaderboard
+    ref_leaderboard_btn:  '🏆 Liderlar',
+    ref_leaderboard_title:'🏆 *Top taklif qiluvchilar*',
+    ref_lb_empty:         "📭 Ma'lumot yo'q.",
+    ref_lb_refs_lbl:      'ref.',
+    // Personal ranking
+    ref_rank_btn:         '📍 Mening reytingim',
+    ref_rank_title:       '📍 *Mening reytingim*',
+    ref_rank_pos:         "O'rin",
+    ref_rank_total:       'Jami referallar',
+    ref_rank_next:        "Keyingi o'rin",
+    ref_rank_gap:         (n: number) => `Keyingi pozitsiyaga *${n}* referal kerak`,
+    ref_rank_top:         "🥇 Siz liderlar ro'yxatida birinchi o'rindasiz!",
+    // Referral history
+    ref_history_btn:      '🗓 Tarix',
+    ref_history_title:    '🗓 *So\'nggi referallar*',
+    ref_history_empty:    "📭 Tarix bo'sh.",
+    ref_hist_store:       "🏪 Do'kon",
+    ref_hist_supplier:    '🚛 Yetkazib beruvchi',
+    ref_hist_unknown:     '👤 Foydalanuvchi',
+    ref_hist_valid:       '✅ Faol',
+    ref_hist_pending:     "\u23f3 Ro'yxatni kutmoqda",
+    // Achievements
+    ref_achievements_lbl: '🏅 Yutuqlar',
+    ref_no_achievements:  "\u23f3 Hali yo'q. 3 ta hamkor taklif qiling!",
+    ref_next_badge:       'Keyingi nishon',
   },
 } as const;
 
@@ -2123,29 +2211,78 @@ bot.action('ref_show_code', async ctx => {
   await ctx.reply(`${t('ref_my_code', lang)}: \`${code}\``, { parse_mode: 'Markdown' });
 });
 
+// ── ref_analytics: Full analytics dashboard ──────────────────────────────────
+bot.action('ref_analytics', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const stats = refRepo.getFullStats(uid, rewardRepo);
+
+  // PRO status
+  const proStatus = stats.isPro && stats.proUntil && new Date(stats.proUntil).getTime() > Date.now()
+    ? `${t('ref_pro_active', lang)} — ${t('ref_pro_until', lang)} ${new Date(stats.proUntil).toLocaleDateString('ru-RU')}`
+    : t('ref_pro_inactive', lang);
+
+  // Achievements
+  const earned = getEarnedAchievements(stats.totalValid);
+  const nextA  = getNextAchievement(stats.totalValid);
+  const langStr = lang === 'uz' ? 'nameUz' : 'nameRu';
+  const badgeStr = earned.length
+    ? earned.map(a => `${a.emoji} ${a[langStr]}`).join('  ')
+    : t('ref_no_achievements', lang);
+  const nextBadgeStr = nextA
+    ? `${nextA.emoji} ${nextA[langStr]} (${stats.totalValid}/${nextA.target})`
+    : '';
+
+  const text =
+    `${t('ref_analytics_title', lang)}\n\n` +
+    `👥 ${t('ref_total_lbl', lang)}: *${stats.totalValid + stats.totalPending}*\n` +
+    `✅ ${t('ref_active_lbl', lang)}: *${stats.totalValid}*\n` +
+    `⏳ ${t('ref_pending_lbl', lang)}: *${stats.totalPending}*\n` +
+    `🏪 ${t('ref_stores_lbl', lang)}: *${stats.storeCount}*\n` +
+    `🚛 ${t('ref_suppliers_lbl', lang)}: *${stats.supplierCount}*\n\n` +
+    `🏆 ${t('ref_rewards_lbl', lang)}: *${stats.rewardsEarned}*\n` +
+    `🚀 ${t('ref_boosts_lbl', lang)}: *${stats.availBoosts}*\n\n` +
+    `⭐ *PRO:* ${proStatus}\n\n` +
+    `${t('ref_achievements_lbl', lang)}:\n${badgeStr}` +
+    (nextBadgeStr ? `\n${t('ref_next_badge', lang)}: ${nextBadgeStr}` : '');
+
+  await ctx.answerCbQuery();
+  await ctx.reply(text, { parse_mode: 'Markdown' });
+});
+
+// ── ref_show_progress: Milestone progress bars ───────────────────────────
 bot.action('ref_show_progress', async ctx => {
   const uid = ctx.from!.id;
   const lang = getLang(repos.users.findById(uid));
-  const stats = getReferralStats(repos.db, uid, refRepo, rewardRepo);
+  const stats = refRepo.getFullStats(uid, rewardRepo);
 
-  const rewardLines: string[] = stats.rewards.length
-    ? stats.rewards.map(r => {
-        if (r.type === 'boost_3')         return t('ref_reward_boost3', lang);
-        if (r.type === 'pro_10')          return t('ref_reward_pro10', lang);
-        if (r.type === 'pro_6mo_25stores') return t('ref_reward_pro6mo', lang);
-        return `✅ ${r.type}`;
-      })
-    : [t('ref_no_rewards', lang)];
+  const bar = (cur: number, max: number) => {
+    const filled = Math.round(Math.min(cur, max) / max * 12);
+    return '█'.repeat(filled) + '░'.repeat(12 - filled);
+  };
+  const pct = (cur: number, max: number) => `${Math.round(Math.min(cur, max) / max * 100)}%`;
 
-  // Progress bars
-  const proBar  = Math.min(stats.totalValid, 10);
-  const stoBar  = Math.min(stats.storeCount, 25);
+  // M1: 3 referrals → Boost
+  const m1 = stats.totalValid; const m1t = 3;
+  const m1line = stats.m1Done
+    ? `${t('ref_m1_title', lang)}\n✅ ${t('ref_m_done', lang)}`
+    : `${t('ref_m1_title', lang)}\n${bar(m1, m1t)} ${m1}/${m1t} (${pct(m1, m1t)})`;
+
+  // M2: 10 referrals → PRO 30d
+  const m2 = stats.totalValid; const m2t = 10;
+  const m2line = stats.m2Done
+    ? `${t('ref_m2_title', lang)}\n✅ ${t('ref_m_done', lang)}`
+    : `${t('ref_m2_title', lang)}\n${bar(m2, m2t)} ${m2}/${m2t} (${pct(m2, m2t)})`;
+
+  // M3: 25 stores → PRO 6mo
+  const m3 = stats.storeCount; const m3t = 25;
+  const m3line = stats.m3Done
+    ? `${t('ref_m3_title', lang)}\n✅ ${t('ref_m_done', lang)}`
+    : `${t('ref_m3_title', lang)}\n${bar(m3, m3t)} ${m3}/${m3t} (${pct(m3, m3t)})`;
 
   const text =
-    (TR[lang as Lang].ref_progress_txt as Function)(stats.totalValid, stats.storeCount, stats.availBoosts) +
-    `\n\n📈 PRO прогресс: ${'▓'.repeat(proBar)}${'░'.repeat(10 - proBar)} ${proBar}/10` +
-    `\n🏪 Store прогресс: ${'▓'.repeat(stoBar)}${'░'.repeat(25 - stoBar)} ${stoBar}/25` +
-    `\n\n*${t('ref_rewards_lbl', lang)}:*\n${rewardLines.join('\n')}`;
+    `${t('ref_milestones_title', lang)}\n\n` +
+    `${m1line}\n\n${m2line}\n\n${m3line}`;
 
   await ctx.answerCbQuery();
   await ctx.reply(text, { parse_mode: 'Markdown' });
@@ -2217,6 +2354,70 @@ bot.action(/^ref_apply_boost_(.+)$/, async ctx => {
     `${t('ref_boost_applied', lang)}\n\n📦 *${md(product.name)}*\n📅 До: ${base.toLocaleDateString('ru-RU')}`,
     { parse_mode: 'Markdown' }
   );
+});
+
+// ── ref_leaderboard: Top 10 inviters ─────────────────────────────────────────
+bot.action('ref_leaderboard', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const top = refRepo.getLeaderboard(10);
+
+  let text = `${t('ref_leaderboard_title', lang)}\n\n`;
+  if (!top.length) {
+    text += t('ref_lb_empty', lang);
+  } else {
+    for (const lb of top) {
+      const isMe = lb.displayName === (repos.users.findById(uid) as any)?.companyName ? ' (Вы)' : '';
+      text += `${lb.rank}. ${md(lb.displayName)}${isMe} — ${lb.validCount} ${t('ref_lb_refs_lbl', lang)}\n`;
+    }
+  }
+
+  await ctx.answerCbQuery();
+  await ctx.reply(text, { parse_mode: 'Markdown' });
+});
+
+// ── ref_my_rank: Personal ranking position ───────────────────────────────────
+bot.action('ref_my_rank', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const rankInfo = refRepo.getUserRank(uid);
+
+  let text = `${t('ref_rank_title', lang)}\n\n`;
+  text += `🏆 ${t('ref_rank_pos', lang)}: *#${rankInfo.rank}*\n`;
+  text += `👥 ${t('ref_rank_total', lang)}: *${rankInfo.validCount}*\n\n`;
+
+  if (rankInfo.nextRank) {
+    text += `📈 ${t('ref_rank_next', lang)}:\n`;
+    text += `*#${rankInfo.nextRank}* — ${rankInfo.validCount + rankInfo.nextCount!} ${t('ref_lb_refs_lbl', lang)}\n\n`;
+    text += (TR[lang as Lang].ref_rank_gap as Function)(rankInfo.nextCount!);
+  } else {
+    text += t('ref_rank_top', lang);
+  }
+
+  await ctx.answerCbQuery();
+  await ctx.reply(text, { parse_mode: 'Markdown' });
+});
+
+// ── ref_history: Recent referrals list ───────────────────────────────────────
+bot.action('ref_history', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const history = refRepo.getHistory(uid, 10);
+
+  let text = `${t('ref_history_title', lang)}\n\n`;
+  if (!history.length) {
+    text += t('ref_history_empty', lang);
+  } else {
+    for (const h of history) {
+      const date = new Date(h.date).toLocaleDateString('ru-RU');
+      const roleStr = h.invitedRole === 'store' ? t('ref_hist_store', lang) : h.invitedRole === 'supplier' ? t('ref_hist_supplier', lang) : t('ref_hist_unknown', lang);
+      const statusStr = h.status === 'valid' ? t('ref_hist_valid', lang) : t('ref_hist_pending', lang);
+      text += `• ${roleStr} — ${statusStr} (${date})\n`;
+    }
+  }
+
+  await ctx.answerCbQuery();
+  await ctx.reply(text, { parse_mode: 'Markdown' });
 });
 
 // ─── ADMIN: /referrals — referral growth stats ────────────────────────────────
