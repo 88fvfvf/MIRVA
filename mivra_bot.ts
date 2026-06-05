@@ -2200,18 +2200,21 @@ bot.action(/^ref_apply_boost_(.+)$/, async ctx => {
   // Decrement boost counter
   repos.db.prepare('UPDATE users SET available_boosts = available_boosts - 1 WHERE id = ? AND available_boosts > 0').run(uid);
 
-  // Apply Featured for 7 days
-  const until = new Date();
-  until.setDate(until.getDate() + 7);
+  // Apply Featured for 7 days (stacking on top of existing if applicable)
+  const base = product.featuredUntil && new Date(product.featuredUntil).getTime() > Date.now()
+    ? new Date(product.featuredUntil)
+    : new Date();
+  base.setDate(base.getDate() + 7);
+  
   product.isFeatured = true;
-  product.featuredUntil = until.toISOString();
+  product.featuredUntil = base.toISOString();
   repos.products.save(product);
 
-  logger.info('REFERRAL', `Boost applied to product ${prodId} by user ${uid}`, { featuredUntil: until.toISOString() });
+  logger.info('REFERRAL', `Boost applied to product ${prodId} by user ${uid}`, { featuredUntil: base.toISOString() });
 
   await ctx.answerCbQuery();
   await ctx.editMessageText(
-    `${t('ref_boost_applied', lang)}\n\n📦 *${md(product.name)}*\n📅 До: ${until.toLocaleDateString('ru-RU')}`,
+    `${t('ref_boost_applied', lang)}\n\n📦 *${md(product.name)}*\n📅 До: ${base.toLocaleDateString('ru-RU')}`,
     { parse_mode: 'Markdown' }
   );
 });
