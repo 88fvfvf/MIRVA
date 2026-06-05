@@ -1353,8 +1353,8 @@ bot.action(/^pg_boost_(.+)$/, async ctx => {
   await ctx.answerCbQuery();
 
   if (!url) {
-    await ctx.reply('🚀 *Boost оформлен* — ожидаем настройки платёжного терминала\. Обратитесь к администратору для завершения\.',
-      { parse_mode: 'MarkdownV2' });
+    await ctx.reply('🚀 *Boost оформлен* — ожидаем настройки платёжного терминала. Обратитесь к администратору для завершения.',
+      { parse_mode: 'Markdown' });
     return;
   }
 
@@ -2036,8 +2036,8 @@ bot.action('buy_pro', async ctx => {
     await ctx.answerCbQuery();
 
     if (!url) {
-      await ctx.reply('⭐ *PRO оформлен* — ожидаем настройки платёжного терминала\. Обратитесь к администратору\.',
-        { parse_mode: 'MarkdownV2' });
+      await ctx.reply('⭐ *PRO оформлен* — ожидаем настройки платёжного терминала. Обратитесь к администратору.',
+        { parse_mode: 'Markdown' });
       return;
     }
 
