@@ -542,6 +542,7 @@ const rateLimit = (uid: number, ms = 1500): boolean => spam.rateLimit(uid, ms);
 const isValidPhone = (p: string) => /^\+?\d[\d\s\-()]{8,18}$/.test(p.trim());
 const fmtD = (v: string) => { const d = new Date(v); return isNaN(d.getTime()) ? v : d.toLocaleDateString('ru-RU'); };
 const md = (v: unknown) => String(v ?? '').replace(/([_*`[\]()])/g, '\\$1');
+const htmlSafe = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const genId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // Database-backed duplicate check.
@@ -1353,13 +1354,13 @@ bot.action(/^pg_boost_(.+)$/, async ctx => {
   await ctx.answerCbQuery();
 
   if (!url) {
-    await ctx.reply('🚀 *Boost оформлен* — ожидаем настройки платёжного терминала. Обратитесь к администратору для завершения.',
-      { parse_mode: 'Markdown' });
+    await ctx.reply('🚀 <b>Boost оформлен</b> — ожидаем настройки платёжного терминала. Обратитесь к администратору для завершения.',
+      { parse_mode: 'HTML' });
     return;
   }
 
-  await ctx.reply(`🚀 *Оплата Boost* для товара *${md(prod.name)}*\n\nСтоимость: 10,000 UZS (на 7 дней)\nВыделение цветом и приоритет в каталоге.`, {
-      parse_mode: 'Markdown',
+  await ctx.reply(`🚀 <b>Оплата Boost</b> для товара <b>${htmlSafe(prod.name)}</b>\n\nСтоимость: 10,000 UZS (на 7 дней)\nВыделение цветом и приоритет в каталоге.`, {
+      parse_mode: 'HTML',
       ...Markup.inlineKeyboard([[Markup.button.url('Оплатить (Payme)', url)]])
   });
 });
@@ -2036,13 +2037,13 @@ bot.action('buy_pro', async ctx => {
     await ctx.answerCbQuery();
 
     if (!url) {
-      await ctx.reply('⭐ *PRO оформлен* — ожидаем настройки платёжного терминала. Обратитесь к администратору.',
-        { parse_mode: 'Markdown' });
+      await ctx.reply('⭐ <b>PRO оформлен</b> — ожидаем настройки платёжного терминала. Обратитесь к администратору.',
+        { parse_mode: 'HTML' });
       return;
     }
 
-    await ctx.reply(`⭐ *Подписка PRO* (на 30 дней)\n\nСтоимость: 42,000 UZS\n\n• Приоритет в поиске\n• Больше лимитов товаров\n• Автоматическое продвижение`, {
-        parse_mode: 'Markdown',
+    await ctx.reply(`⭐ <b>Подписка PRO</b> (на 30 дней)\n\nСтоимость: 42,000 UZS\n\n• Приоритет в поиске\n• Больше лимитов товаров\n• Автоматическое продвижение`, {
+        parse_mode: 'HTML',
         ...Markup.inlineKeyboard([[Markup.button.url('Оплатить (Payme)', url)]])
     });
 });
@@ -2351,8 +2352,8 @@ bot.action(/^ref_apply_boost_(.+)$/, async ctx => {
 
   await ctx.answerCbQuery();
   await ctx.editMessageText(
-    `${t('ref_boost_applied', lang)}\n\n📦 *${md(product.name)}*\n📅 До: ${base.toLocaleDateString('ru-RU')}`,
-    { parse_mode: 'Markdown' }
+    `${t('ref_boost_applied', lang)}\n\n📦 <b>${htmlSafe(product.name)}</b>\n📅 До: ${base.toLocaleDateString('ru-RU')}`,
+    { parse_mode: 'HTML' }
   );
 });
 
@@ -2362,18 +2363,18 @@ bot.action('ref_leaderboard', async ctx => {
   const lang = getLang(repos.users.findById(uid));
   const top = refRepo.getLeaderboard(10);
 
-  let text = `${t('ref_leaderboard_title', lang)}\n\n`;
+  let text = `<b>${t('ref_leaderboard_title', lang).replace(/\*/g, '')}</b>\n\n`;
   if (!top.length) {
     text += t('ref_lb_empty', lang);
   } else {
     for (const lb of top) {
       const isMe = lb.displayName === (repos.users.findById(uid) as any)?.companyName ? ' (Вы)' : '';
-      text += `${lb.rank}. ${md(lb.displayName)}${isMe} — ${lb.validCount} ${t('ref_lb_refs_lbl', lang)}\n`;
+      text += `${lb.rank}. <b>${htmlSafe(lb.displayName)}</b>${isMe} — ${lb.validCount} ${t('ref_lb_refs_lbl', lang)}\n`;
     }
   }
 
   await ctx.answerCbQuery();
-  await ctx.reply(text, { parse_mode: 'Markdown' });
+  await ctx.reply(text, { parse_mode: 'HTML' });
 });
 
 // ── ref_my_rank: Personal ranking position ───────────────────────────────────
