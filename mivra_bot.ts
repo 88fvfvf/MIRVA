@@ -32,6 +32,10 @@ import {
 import { smartSearch, getCatalogMeta as dbGetCatalogMeta } from './mivra_search';
 import { SpamGuard } from './mivra_spam';
 import { buildAdminAnalytics, formatAdminStats } from './mivra_analytics';
+import {
+  ReferralRepository, ReferralRewardRepository,
+  checkAndDistributeRewards, getReferralStats, RewardType
+} from './mivra_referral';
 
 // ─── TRANSLATIONS ─────────────────────────────────────────────────────────────
 
@@ -186,6 +190,47 @@ const TR = {
     pg_next: 'Вперёд ➡️',
     pg_page: 'Страница',
     all_cats_lbl: 'Все категории',
+    // ── Referral system ──────────────────────────────────────────────────────
+    ref_menu_btn:     '🎁 Реферальная программа',
+    ref_menu_title:   '🎁 *Реферальная программа*',
+    ref_my_link:      '🔗 Моя реферальная ссылка',
+    ref_my_code:      '🔑 Мой код',
+    ref_progress:     '📊 Мой прогресс',
+    ref_rules:        '📋 Правила',
+    ref_invited_lbl:  'Приглашено пользователей',
+    ref_stores_lbl:   'Приглашено магазинов',
+    ref_boosts_lbl:   '🚀 Бустов доступно',
+    ref_rewards_lbl:  'Мои награды',
+    ref_no_rewards:   '⏳ Пока наград нет.',
+    ref_progress_txt: (total: number, stores: number, boosts: number) =>
+      `📊 *Мой прогресс*\n\n` +
+      `👥 Приглашено: *${total}* (из 10 для PRO)\n` +
+      `🏪 Магазинов: *${stores}* (из 25 для 6-мес PRO)\n` +
+      `🚀 Бустов в запасе: *${boosts}*`,
+    ref_reward_boost3:    '✅ 🚀 Boost заработан (3 реф.)',
+    ref_reward_pro10:     '✅ ⭐ PRO 30 дней заработан (10 реф.)',
+    ref_reward_pro6mo:    '✅ ⭐ PRO 6 месяцев + 3 Boost заработан (25 магазинов)',
+    ref_rules_text: () =>
+      `📋 *Правила программы*\n\n` +
+      `🔗 Поделитесь своей ссылкой с коллегами по бизнесу.\n\n` +
+      `*Реферал засчитывается только когда:*\n` +
+      `• Пользователь зарегистрировался по вашей ссылке\n` +
+      `• Выбрал роль и прошёл онбординг\n` +
+      `• Стал активным участником платформы\n\n` +
+      `*🏆 Награды:*\n` +
+      `3 реферала → 🚀 Boost (7 дней на любой товар)\n` +
+      `10 рефералов → ⭐ PRO 30 дней\n` +
+      `25 магазинов (для поставщиков) → ⭐ PRO 6 мес + 3 Boost\n\n` +
+      `_Бусты хранятся на счету — активируйте когда удобно._`,
+    ref_boost_activate:   '🚀 Применить Boost',
+    ref_boost_select_prod:'📦 Выберите товар для Boost:',
+    ref_boost_no_prods:   '⚠️ Нет активных товаров.',
+    ref_boost_applied:    '✅ Boost применён! Товар выделен на 7 дней.',
+    ref_boost_none:       '⚠️ Нет доступных бустов.',
+    ref_notif_boost3:     '🎉 +1 Boost! Вы пригласили 3 пользователей.',
+    ref_notif_pro10:      '🎉 ⭐ PRO активирован! Вы пригласили 10 пользователей.',
+    ref_notif_pro6mo:     '🎉 ⭐ PRO на 6 месяцев + 3 Boost! 25 магазинов приглашено.',
+    ref_invited_by:       (name: string) => `👋 Вы присоединились по приглашению *${name}*!`,
   },
   uz: {
     select_lang: '👋 *MIVRA*га хуш келибсиз\n_Savdoni osonlashtiramiz._\n\nВыберите язык / Tilni tanlang:',
@@ -328,12 +373,60 @@ const TR = {
     pre_accept_msg: "⚠️ Yetkazib beruvchini tasdiqlang:",
     pre_accept_confirm: '✅ Tasdiqlash',
     pre_accept_cancel: '⬅️ Orqaga',
+    // Referral system
+    ref_menu_btn:     '🎁 Referal dasturi',
+    ref_menu_title:   '🎁 *Referal dasturi*',
+    ref_my_link:      '🔗 Mening referal havolam',
+    ref_my_code:      '🔑 Mening kodum',
+    ref_progress:     "📊 Mening rivojim",
+    ref_rules:        '📋 Qoidalar',
+    ref_invited_lbl:  'Taklif qilingan foydalanuvchilar',
+    ref_stores_lbl:   "Taklif qilingan do'konlar",
+    ref_boosts_lbl:   '🚀 Mavjud Boostlar',
+    ref_rewards_lbl:  'Mening mukofotlarim',
+    ref_no_rewards:   "⏳ Hozircha mukofotlar yo'q.",
+    ref_progress_txt: (total: number, stores: number, boosts: number) =>
+      `📊 *Mening rivojim*\n\n` +
+      `👥 Taklif qilingan: *${total}* (PRO uchun 10 dan)\n` +
+      `🏪 Do'konlar: *${stores}* (6 oylik PRO uchun 25 dan)\n` +
+      `🚀 Boost zaxirada: *${boosts}*`,
+    ref_reward_boost3:    '✅ 🚀 Boost qo\'lga kiritildi (3 ref.)',
+    ref_reward_pro10:     '✅ ⭐ PRO 30 kun qo\'lga kiritildi (10 ref.)',
+    ref_reward_pro6mo:    '✅ ⭐ PRO 6 oy + 3 Boost qo\'lga kiritildi (25 do\'kon)',
+    ref_rules_text: () =>
+      `📋 *Dastur qoidalari*\n\n` +
+      `🔗 Havolangizni biznes hamkorlar bilan ulashing.\n\n` +
+      `*Referal faqat shu hollarda hisoblanadi:*\n` +
+      `• Foydalanuvchi havolangiz orqali ro'yxatdan o'tdi\n` +
+      `• Rol tanladi va onbordingdan o'tdi\n` +
+      `• Platformaning faol ishtirokchisiga aylandi\n\n` +
+      `*🏆 Mukofotlar:*\n` +
+      `3 referal → 🚀 Boost (7 kun)\n` +
+      `10 referal → ⭐ PRO 30 kun\n` +
+      `25 do'kon (yetkazib beruvchilar uchun) → ⭐ PRO 6 oy + 3 Boost\n\n` +
+      `_Boostlar hisobda saqlanadi — xohlagan vaqtda faollashtiring._`,
+    ref_boost_activate:   '🚀 Boost ishlatish',
+    ref_boost_select_prod:"📦 Boost uchun mahsulot tanlang:",
+    ref_boost_no_prods:   "⚠️ Faol mahsulotlar yo'q.",
+    ref_boost_applied:    "✅ Boost ishlatildi! Mahsulot 7 kun ajratib ko'rsatiladi.",
+    ref_boost_none:       "⚠️ Mavjud Boostlar yo'q.",
+    ref_notif_boost3:     '🎉 +1 Boost! 3 foydalanuvchi taklif qildingiz.',
+    ref_notif_pro10:      '🎉 ⭐ PRO faollashtirildi! 10 foydalanuvchi taklif qildingiz.',
+    ref_notif_pro6mo:     '🎉 ⭐ PRO 6 oy + 3 Boost! 25 do\'kon taklif qilindi.',
+    ref_invited_by:       (name: string) => `👋 Siz *${name}* taklifi orqali qo'shildingiz!`,
   },
 } as const;
 
 type TKey = keyof typeof TR.ru;
-const t = (k: TKey, l: Lang = 'ru'): string => ((TR[l] as Record<string, string>)[k]) ?? TR.ru[k] ?? k;
-const isCmd = (txt: string, k: TKey): boolean => txt === TR.ru[k] || txt === TR.uz[k];
+const t = (k: TKey, l: Lang = 'ru'): string => {
+  const val = (TR[l] as unknown as Record<string, unknown>)[k] ?? (TR.ru as unknown as Record<string, unknown>)[k] ?? k;
+  return typeof val === 'string' ? val : String(k);
+};
+const isCmd = (txt: string, k: TKey): boolean => {
+  const ru = (TR.ru as unknown as Record<string, unknown>)[k];
+  const uz = (TR.uz as unknown as Record<string, unknown>)[k];
+  return txt === ru || txt === uz;
+};
 const getLang = (u?: User): Lang => (u as any)?.lang ?? 'ru';
 const skip = (txt: string): boolean => ['нет', "yo'q", 'yoq', 'no', '/skip'].includes(txt.toLowerCase().trim());
 const truncS = (s: string, max: number) => s.length > max ? s.slice(0, max) + '…' : s;
@@ -470,11 +563,15 @@ interface Session extends SessionData {}
 // ─── REPOSITORY INITIALIZATION ────────────────────────────────────────────────
 
 let repos: Repos;
+let refRepo: ReferralRepository;
+let rewardRepo: ReferralRewardRepository;
 
 function initRepos() {
   const db = getDb();
   runMigration(db);
   repos = createRepos(db);
+  refRepo   = new ReferralRepository(db);
+  rewardRepo = new ReferralRewardRepository(db);
   spam = new SpamGuard(db);
   spam.startCleanupTimer();
   repos.sessions.cleanup();
@@ -551,8 +648,8 @@ const getProductLimit = (sup: SupplierUser) => TIER_LIMITS[sup.tier ?? 'free'];
 
 // ─── KEYBOARDS ────────────────────────────────────────────────────────────────
 
-const storeKb = (l: Lang) => Markup.keyboard([[t('catalog', l), t('create_req', l)], [t('my_reqs', l), t('favorites', l)], [t('help', l)]]).resize();
-const supKb = (l: Lang) => Markup.keyboard([[t('buyer_reqs', l), t('my_prods', l)], [t('add_prod', l), t('dashboard', l)], [t('profile', l), t('help', l)]]).resize();
+const storeKb = (l: Lang) => Markup.keyboard([[t('catalog', l), t('create_req', l)], [t('my_reqs', l), t('favorites', l)], [t('ref_menu_btn', l), t('help', l)]]).resize();
+const supKb   = (l: Lang) => Markup.keyboard([[t('buyer_reqs', l), t('my_prods', l)], [t('add_prod', l), t('dashboard', l)], [t('ref_menu_btn', l), t('profile', l)], [t('help', l)]]).resize();
 const adminKb = Markup.keyboard([[TR.ru.stats, TR.ru.all_reqs], [TR.ru.sups, TR.ru.prods], [TR.ru.broadcast_btn]]).resize();
 const ynKb = (y: string, n: string, l: Lang) => Markup.inlineKeyboard([[Markup.button.callback(t('yes', l), y), Markup.button.callback(t('no', l), n)]]);
 const unitKb = (l: Lang) => Markup.inlineKeyboard([[Markup.button.callback(t('boxes', l), 'unit_boxes'), Markup.button.callback(t('packs', l), 'unit_packs'), Markup.button.callback(t('units', l), 'unit_units')]]);
@@ -720,6 +817,25 @@ bot.start(async ctx => {
   const uid = ctx.from.id;
   if (isAdmin(uid)) { await ctx.reply('👋 MIVRA Admin Panel', adminKb); return; }
   const u = repos.users.findById(uid);
+
+  // ── Capture referral deep link (/start REF_CODE) ────────────────────────────
+  const payload = ctx.startPayload; // e.g. 'MIVRA_k8jf2'
+  if (payload && !u) {
+    // New user arriving via referral link
+    const inviterId = refRepo.findUserByCode(payload);
+    if (inviterId && inviterId !== uid) {
+      // Store pending referral; will be activated after onboarding completes
+      if (!refRepo.isAlreadyReferred(uid)) {
+        refRepo.createPending(inviterId, uid);
+        getS(uid).tempData = { ...(getS(uid).tempData ?? {}), pendingReferralInviterId: inviterId };
+        // Show inviter's name as a welcome note
+        const inviter = repos.users.findById(inviterId);
+        const inviterName = (inviter as any)?.companyName ?? (inviter as any)?.storeName ?? (inviter as any)?.firstName ?? 'MIVRA';
+        await ctx.reply((TR.ru.ref_invited_by as Function)(inviterName), { parse_mode: 'Markdown' });
+      }
+    }
+  }
+
   if (isSt(u)) { await ctx.reply(`С возвращением, *${md(u.storeName)}*!`, { parse_mode: 'Markdown', ...storeKb(u.lang) }); return; }
   if (isSup(u)) {
     if (u.suspended) { await ctx.reply(t('suspended', u.lang)); return; }
@@ -1439,7 +1555,19 @@ bot.on(message('text'), async ctx => {
     if (!s.tempData) { clearS(uid); return; }
     const { lang: l, storeName, phone } = s.tempData;
     const u: StoreUser = { id: uid, firstName: ctx.from.first_name, username: ctx.from.username, role: 'store', storeName, phone, city: text, lang: l, registeredAt: new Date().toISOString(), favorites: [] };
-    repos.users.save(u); clearS(uid);
+    repos.users.save(u);
+    // ── Activate referral (store — no approval needed) ────────────────────────
+    const activated = refRepo.activate(uid, 'store');
+    if (activated) {
+      const newRewards = checkAndDistributeRewards(repos.db, activated.inviterId, 'store', refRepo, rewardRepo);
+      for (const rw of newRewards) {
+        const notifKey = rw === 'boost_3' ? 'ref_notif_boost3' : rw === 'pro_10' ? 'ref_notif_pro10' : 'ref_notif_pro6mo';
+        const inviter = repos.users.findById(activated.inviterId);
+        const iLang = getLang(inviter) as Lang;
+        bot.telegram.sendMessage(activated.inviterId, t(notifKey as any, iLang)).catch(() => {});
+      }
+    }
+    clearS(uid);
     await ctx.reply(`${t('r_store_done', l)}\n\n🏪 *${md(u.storeName)}*\n📍 ${md(text)}`, { parse_mode: 'Markdown', ...storeKb(l) });
     await bot.telegram.sendMessage(ADMIN_ID, `🆕 Новый магазин: ${u.storeName} (${text})`).catch(() => { }); return;
   }
@@ -1621,8 +1749,22 @@ bot.on(message('text'), async ctx => {
 
   // ── Help ──────────────────────────────────────────────────────────────────
   if (isCmd(text, 'help')) {
-    if (isSt(user)) await ctx.reply(`📖 *Помощь — Магазин*\n\n🔍 Каталог — просматривайте товары\n📝 Создать заявку — запрос (макс. ${MAX_ACTIVE_REQS})\n📋 Мои заявки — конкурс предложений, статус\n⭐ Избранное — сохранённые товары`, { parse_mode: 'Markdown' });
-    if (isSup(user)) await ctx.reply(`📖 *Помощь — Поставщик*\n\n📥 Заявки — конкурс, ваша позиция\n📦 Мои товары — каталог (макс. ${getProductLimit(user)})\n📊 Аналитика — статистика просмотров\n✏️ Улучшить предложение — обновить цену`, { parse_mode: 'Markdown' });
+    if (isSt(user)) await ctx.reply(`📖 *Помощь — Магазин*\n\n🔍 Каталог — просматривайте товары\n📝 Создать заявку — запрос (макс. ${MAX_ACTIVE_REQS})\n📋 Мои заявки — конкурс предложений, статус\n⭐ Избранное — сохранённые товары\n🎁 Реферальная программа — пригласите коллег`, { parse_mode: 'Markdown' });
+    if (isSup(user)) await ctx.reply(`📖 *Помощь — Поставщик*\n\n📥 Заявки — конкурс, ваша позиция\n📦 Мои товары — каталог (макс. ${getProductLimit(user)})\n📊 Аналитика — статистика просмотров\n✏️ Улучшить предложение — обновить цену\n🎁 Реферальная программа — зарабатывайте PRO и Boost`, { parse_mode: 'Markdown' });
+    return;
+  }
+
+  // ── Referral Program Menu ─────────────────────────────────────────────────
+  if (isCmd(text, 'ref_menu_btn')) {
+    const code = refRepo.ensureCode(uid);
+    const botInfo = await bot.telegram.getMe().catch(() => ({ username: 'MIRVA_bot' }));
+    const link = `https://t.me/${botInfo.username}?start=${code}`;
+    const kb = Markup.inlineKeyboard([
+      [Markup.button.callback(t('ref_my_link', lang), 'ref_show_link'), Markup.button.callback(t('ref_my_code', lang), 'ref_show_code')],
+      [Markup.button.callback(t('ref_progress', lang), 'ref_show_progress'), Markup.button.callback(t('ref_rules', lang), 'ref_show_rules')],
+      ...(isSup(user) ? [[Markup.button.callback(t('ref_boost_activate', lang), 'ref_boost_apply')]] : []),
+    ]);
+    await ctx.reply(t('ref_menu_title', lang), { parse_mode: 'Markdown', ...kb });
     return;
   }
 
@@ -1954,4 +2096,152 @@ bot.command('refunds', async ctx => {
     `• \`${r.id}\` | tx=\`${r.transactionId.slice(0, 10)}\` | ${r.status} | ${r.reason.slice(0, 40)}`
   ).join('\n');
   await ctx.reply(`*Последние рефанды (${list.length}):*\n${lines}`, { parse_mode: 'Markdown' });
+});
+
+// ─── REFERRAL ACTION HANDLERS ─────────────────────────────────────────────────
+
+bot.action('ref_show_link', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const code = refRepo.ensureCode(uid);
+  const botInfo = await bot.telegram.getMe().catch(() => ({ username: 'MIRVA_bot' }));
+  const link = `https://t.me/${botInfo.username}?start=${code}`;
+  await ctx.answerCbQuery();
+  await ctx.reply(
+    `${t('ref_my_link', lang)}\n\n` +
+    `\`${link}\`\n\n` +
+    `_Поделитесь этой ссылкой с бизнес-партнёрами._`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.action('ref_show_code', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const code = refRepo.ensureCode(uid);
+  await ctx.answerCbQuery();
+  await ctx.reply(`${t('ref_my_code', lang)}: \`${code}\``, { parse_mode: 'Markdown' });
+});
+
+bot.action('ref_show_progress', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  const stats = getReferralStats(repos.db, uid, refRepo, rewardRepo);
+
+  const rewardLines: string[] = stats.rewards.length
+    ? stats.rewards.map(r => {
+        if (r.type === 'boost_3')         return t('ref_reward_boost3', lang);
+        if (r.type === 'pro_10')          return t('ref_reward_pro10', lang);
+        if (r.type === 'pro_6mo_25stores') return t('ref_reward_pro6mo', lang);
+        return `✅ ${r.type}`;
+      })
+    : [t('ref_no_rewards', lang)];
+
+  // Progress bars
+  const proBar  = Math.min(stats.totalValid, 10);
+  const stoBar  = Math.min(stats.storeCount, 25);
+
+  const text =
+    (TR[lang as Lang].ref_progress_txt as Function)(stats.totalValid, stats.storeCount, stats.availBoosts) +
+    `\n\n📈 PRO прогресс: ${'▓'.repeat(proBar)}${'░'.repeat(10 - proBar)} ${proBar}/10` +
+    `\n🏪 Store прогресс: ${'▓'.repeat(stoBar)}${'░'.repeat(25 - stoBar)} ${stoBar}/25` +
+    `\n\n*${t('ref_rewards_lbl', lang)}:*\n${rewardLines.join('\n')}`;
+
+  await ctx.answerCbQuery();
+  await ctx.reply(text, { parse_mode: 'Markdown' });
+});
+
+bot.action('ref_show_rules', async ctx => {
+  const uid = ctx.from!.id;
+  const lang = getLang(repos.users.findById(uid));
+  await ctx.answerCbQuery();
+  await ctx.reply((TR[lang as Lang].ref_rules_text as Function)(), { parse_mode: 'Markdown' });
+});
+
+// Boost activation — show product picker
+bot.action('ref_boost_apply', async ctx => {
+  const uid = ctx.from!.id;
+  const user = repos.users.findById(uid);
+  const lang = getLang(user);
+  const row = repos.db.prepare('SELECT available_boosts FROM users WHERE id = ?').get(uid) as any;
+  if (!row || (row.available_boosts ?? 0) < 1) {
+    await ctx.answerCbQuery(t('ref_boost_none', lang), { show_alert: true });
+    return;
+  }
+  const prods = repos.products.findBySupplierId(uid, false);
+  if (!prods.length) { await ctx.answerCbQuery(t('ref_boost_no_prods', lang), { show_alert: true }); return; }
+  await ctx.answerCbQuery();
+  await ctx.reply(
+    t('ref_boost_select_prod', lang),
+    Markup.inlineKeyboard(prods.slice(0, 20).map(p =>
+      [Markup.button.callback(`📦 ${p.name.slice(0, 35)}`, `ref_apply_boost_${p.id}`)]
+    ))
+  );
+});
+
+// Apply boost to selected product
+bot.action(/^ref_apply_boost_(.+)$/, async ctx => {
+  const uid = ctx.from!.id;
+  const user = repos.users.findById(uid);
+  const lang = getLang(user);
+  const prodId = ctx.match[1];
+
+  // Atomic: check + decrement boost, then apply featured
+  const row = repos.db.prepare('SELECT available_boosts FROM users WHERE id = ?').get(uid) as any;
+  if (!row || (row.available_boosts ?? 0) < 1) {
+    await ctx.answerCbQuery(t('ref_boost_none', lang), { show_alert: true }); return;
+  }
+
+  const product = repos.products.findById(prodId);
+  if (!product || product.supplierId !== uid) {
+    await ctx.answerCbQuery('Товар не найден.', { show_alert: true }); return;
+  }
+
+  // Decrement boost counter
+  repos.db.prepare('UPDATE users SET available_boosts = available_boosts - 1 WHERE id = ? AND available_boosts > 0').run(uid);
+
+  // Apply Featured for 7 days
+  const until = new Date();
+  until.setDate(until.getDate() + 7);
+  product.isFeatured = true;
+  product.featuredUntil = until.toISOString();
+  repos.products.save(product);
+
+  logger.info('REFERRAL', `Boost applied to product ${prodId} by user ${uid}`, { featuredUntil: until.toISOString() });
+
+  await ctx.answerCbQuery();
+  await ctx.editMessageText(
+    `${t('ref_boost_applied', lang)}\n\n📦 *${md(product.name)}*\n📅 До: ${until.toLocaleDateString('ru-RU')}`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// ─── ADMIN: /referrals — referral growth stats ────────────────────────────────
+
+bot.command('referrals', async ctx => {
+  if (!isAdmin(ctx.from?.id)) return;
+
+  const totalRefRows = repos.db.prepare("SELECT COUNT(*) AS c FROM referrals WHERE status = 'valid'").get() as any;
+  const totalRefs = totalRefRows?.c ?? 0;
+  const totalRewardsRow = repos.db.prepare('SELECT COUNT(*) AS c FROM referral_rewards').get() as any;
+  const totalRewards = totalRewardsRow?.c ?? 0;
+  const topInviters = refRepo.topInviters(10);
+
+  let text = `📊 *Реферальная статистика*\n\n`;
+  text += `👥 Всего валидных рефералов: *${totalRefs}*\n`;
+  text += `🏆 Наград выдано: *${totalRewards}*\n\n`;
+  text += `*Топ пригласивших:*\n`;
+
+  if (!topInviters.length) {
+    text += '_Нет данных._';
+  } else {
+    for (let i = 0; i < topInviters.length; i++) {
+      const inv = topInviters[i];
+      const invUser = repos.users.findById(inv.inviterId);
+      const name = (invUser as any)?.companyName ?? (invUser as any)?.storeName ?? (invUser as any)?.firstName ?? `#${inv.inviterId}`;
+      text += `${i + 1}. ${md(name)} — ${inv.validCount} реф. (🏪 ${inv.storCount} магаз.)\n`;
+    }
+  }
+
+  await ctx.reply(text, { parse_mode: 'Markdown' });
 });

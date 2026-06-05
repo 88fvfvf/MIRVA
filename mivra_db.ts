@@ -83,7 +83,10 @@ export function initSchema(db: Database.Database): void {
     tier                 TEXT    NOT NULL DEFAULT 'free',
     categories           TEXT    NOT NULL DEFAULT '[]',   -- JSON: string[]
     is_pro               INTEGER NOT NULL DEFAULT 0,
-    pro_until            TEXT
+    pro_until            TEXT,
+    -- referral system
+    referral_code        TEXT    UNIQUE,          -- e.g. 'MIVRA_7Xq3k'
+    available_boosts     INTEGER NOT NULL DEFAULT 0  -- pending Boost rewards not yet applied
   );
 
   -- Catalog: filter active suppliers quickly
@@ -336,6 +339,34 @@ export function initSchema(db: Database.Database): void {
   );
   CREATE INDEX IF NOT EXISTS idx_refund_tx ON refunds(transaction_id);
   CREATE INDEX IF NOT EXISTS idx_refund_admin ON refunds(admin_id, created_at DESC);
+
+  -- ── REFERRALS ─────────────────────────────────────────────────────────────
+  -- Tracks who invited whom. A referral is only 'valid' once the invited user
+  -- completes onboarding (store instantly; supplier after admin approval).
+  CREATE TABLE IF NOT EXISTS referrals (
+    id             TEXT    PRIMARY KEY,
+    inviter_id     INTEGER NOT NULL REFERENCES users(id),
+    invited_id     INTEGER NOT NULL UNIQUE,          -- each user can be invited only once
+    invited_role   TEXT,                             -- 'store' | 'supplier' — set on activation
+    status         TEXT    NOT NULL DEFAULT 'pending', -- pending | valid
+    created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+    activated_at   TEXT                              -- when the referral became valid
+  );
+  CREATE INDEX IF NOT EXISTS idx_ref_inviter ON referrals(inviter_id, status);
+  CREATE INDEX IF NOT EXISTS idx_ref_invited ON referrals(invited_id);
+
+  -- ── REFERRAL REWARDS ──────────────────────────────────────────────────────
+  -- Milestone rewards earned. Each milestone can only be earned once.
+  -- type: 'boost_3' | 'pro_10' | 'pro_6mo_25stores'
+  CREATE TABLE IF NOT EXISTS referral_rewards (
+    id          TEXT    PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    type        TEXT    NOT NULL,
+    milestone   INTEGER NOT NULL,                    -- referral count that triggered this
+    earned_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_ref_reward_uniq ON referral_rewards(user_id, type);
+  CREATE INDEX IF NOT EXISTS idx_ref_reward_user ON referral_rewards(user_id);
 
   -- ── Additional indexes for monetization expiry queries ────────────────────
   CREATE INDEX IF NOT EXISTS idx_prod_featured ON products(is_featured, featured_until);
